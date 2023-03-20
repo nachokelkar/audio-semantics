@@ -1,0 +1,7 @@
+# Dataset files
+./LibriSpeech/
+complete_corpus.txt
+wordsim353_sim_rel
+
+# Mac OS cache
+.DS_Store
