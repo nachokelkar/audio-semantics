@@ -1,5 +1,14 @@
 # Dataset files
 data/
 
+# Models
+models/
+
 # Mac OS cache
 .DS_Store
+
+# IPython cache
+*.amlignore
+*.amltmp
+*.npy
+.ipynb_aml_checkpoints/
