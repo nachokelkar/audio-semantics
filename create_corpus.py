@@ -72,15 +72,17 @@ if __name__ == "__main__":
                 if len(book_letters) > max_length:
                     max_length = len(book_letters)
 
-                with open(CORPUS_FILENAME, "a") as corpus_file:
+                with open(
+                    CORPUS_FILENAME, "a", encoding="utf-8"
+                ) as corpus_file:
                     corpus_file.write(book_letters)
-                if args.new_lines:
-                    corpus_file.write("\n")
+                    if args.new_lines:
+                        corpus_file.write("\n")
 
         except Exception:
             if VERBOSE:
                 book_list.set_postfix({"last error": book_folder})
-    
+
     if VERBOSE:
         print(f"Created file {CORPUS_FILENAME}")
 
