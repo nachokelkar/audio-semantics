@@ -17,6 +17,8 @@ parser.add_argument("--n_books", default=None,
                     help="number of books to include in corpus")
 parser.add_argument("--spaces", action="store_true", default=False,
                     help="spaces or not")
+parser.add_argument("--new_lines", action="store_true", default=False,
+                    help="new lines between books or not")
 
 
 if __name__ == "__main__":
@@ -72,6 +74,7 @@ if __name__ == "__main__":
 
                 with open(CORPUS_FILENAME, "a") as corpus_file:
                     corpus_file.write(book_letters)
+                if args.new_lines:
                     corpus_file.write("\n")
 
         except Exception:
