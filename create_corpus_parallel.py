@@ -10,13 +10,12 @@ from tqdm import tqdm
 from re import split
 from textwrap import wrap
 import random
+import concurrent.futures
 
 parser = argparse.ArgumentParser(description="Create the text corpus")
 
 parser.add_argument("--verbose", action="store_true", default=True,
                     help="verbose mode")
-parser.add_argument("--output",
-                    help="output filepath")
 parser.add_argument("--use_delimiters", default=".?!\n",
                    help="sentence delimiters (default=\".?!\\n\")")
 parser.add_argument("--sentence_limit", default=4000,
@@ -147,14 +146,14 @@ def parse_as_phonemes_noisy(book_text, line_limit=None, delimiters=".?!\n", sent
     for phoneme in text_as_phonemes:
         phoneme = "".join([char for char in phoneme if char.isalpha()])
         if phoneme:
-            if random.random() > float(args.noise_prob):
+            if random.random() > 0.01:
                 parsed_text += random.choice(phoneme_variant_dict[phoneme])
             else:
                 parsed_text += random.choice(phoneme_chars)
 
     for char in parsed_text:
         if char.isalpha() and sent_len <= sentence_limit:
-            final_text += char
+            final_text += char.lower()
             sent_len += 1
         elif char in list(delimiters) or sent_len > sentence_limit:
             if final_text[-1] != "\n":
@@ -168,69 +167,52 @@ def parse_as_phonemes_noisy(book_text, line_limit=None, delimiters=".?!\n", sent
     return final_text.strip(), n_lines
 
 
+def parse_book(book_path, book_parser=parse_as_phonemes_noisy):
+    """
+    Function to parse a single book.
+    """
+    encoding = "utf-8" if "utf-8" in book_path.lower() else "ascii"
+    output_filepath = book_path[:book_path.rindex("/") + 1] +"_" +book_path[book_path.rindex("/") + 1:]
+    
+    try:
+        with open(book_path, "r", encoding=encoding) as book_file:
+            book_text = book_file.read()
+            final_text, book_lines = book_parser(book_text)
+
+            with open(
+                output_filepath, "a+", encoding="utf-8"
+            ) as output_file:
+                output_file.write(final_text.strip() + "\n")
+        print(f"Created {output_filepath}.")
+
+        return output_filepath, book_lines
+    
+    except Exception as e:
+        print(f"Error with {output_filepath}: {e}.")
+        return "", 0
+
+
 if __name__ == "__main__":
     g2p = G2p()
     args = parser.parse_args()
 
-    VERBOSE = args.verbose
-
-    # Store output filename
-    CORPUS_FILENAME = os.getcwd() + f"/data/gutenberg.txt"
-    if args.output is not None:
-        CORPUS_FILENAME = args.output
-        
-    # Remove file if exists
-    if os.path.exists(CORPUS_FILENAME):
-        os.remove(CORPUS_FILENAME)
-
     encodings = ["ascii", "utf-8"]
-    book_list = []
+    book_folders = []
     
     # Obtain list of all book directories
     for encoding in encodings:
-        if VERBOSE:
-            print(f"Encoding - {encoding}")
+        filepath = f"data/LibriSpeech/books/{encoding}/"
 
-        filepath = os.getcwd() + f"/data/LibriSpeech/books/{encoding}/"
+        book_folders.extend([filepath + i for i in os.listdir(filepath)])
+        
+    book_list = []
+    for book_folder in book_folders:
+        book = os.listdir(book_folder)[0]
+        book_path = book_folder + "/" + book
+        book_list.append(book_path)
 
-        book_list.extend([filepath + i for i in os.listdir(filepath)])
-
-    if VERBOSE:
-        book_list = tqdm(book_list)
-
-    parsers = {
-        "c": parse_as_char,
-        "p": parse_as_phonemes,
-        "n": parse_as_phonemes_noisy
-    }
-    book_parser = parsers[args.mode]
-    n_lines = 0
-    lines_parsed = 0
-    errors = 0
-
-    for book_folder in book_list:
+    with concurrent.futures.ThreadPoolExecutor() as executor:
         try:
-            book = os.listdir(book_folder)[0]
-            book_path = book_folder + "/" + book
-            
-            if args.n_lines is None or n_lines < int(args.n_lines):
-                with open(book_path, "r", encoding=encoding) as book_file:
-                    book_text = book_file.read()
-                    final_text, book_lines = book_parser(book_text)
-
-                    with open(
-                        CORPUS_FILENAME, "a+", encoding="utf-8"
-                    ) as corpus_file:
-                        if args.n_lines is not None and n_lines + book_lines > int(args.n_lines):
-                            final_text = "\n".join(final_text.split("\n")[:n_lines + book_lines])
-                        corpus_file.write(final_text.strip() + "\n")
-
-                    n_lines += book_lines
-
-        except Exception as e:
-            if VERBOSE:
-                errors += 1
-                book_list.set_postfix({"errors": errors, "ECODE": e})
-
-    if VERBOSE:
-        print(f"Created file {CORPUS_FILENAME} with {n_lines} lines")
+            result = executor.map(parse_book, book_list)
+        except KeyboardInterrupt:
+            executor.cancel()
