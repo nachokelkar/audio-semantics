@@ -134,12 +134,6 @@ dmypy.json
 # Cython debug symbols
 cython_debug/
 
-# Dataset files
-data/
-
-# Models
-models/
-
 # Mac OS cache
 .DS_Store
 
@@ -148,3 +142,9 @@ models/
 *.amltmp
 *.npy
 .ipynb_aml_checkpoints/
+
+# Dataset files
+data/
+
+# Models
+models/
