@@ -18,9 +18,42 @@ parser.add_argument("--verbose", action="store_true", default=True,
 parser.add_argument("--sentence_limit", default=4000,
                     help="Limit sentence to a particular length")
 parser.add_argument("--mode", default="p",
-                    help="noisy phonemes (n) | phonemes (p) | characters (c)")
+                    help="as is (i) | noisy phonemes (n) "
+                    "| phonemes (p) | characters (c)")
 parser.add_argument("--noise_prob", default=0.01,
                     help="probability of noise (only for mode=n)")
+
+
+# Step 0 : Create corpus from text
+def parse_as_is(
+        book_text: str,
+        sentence_limit: int = 4000,
+        *args, **kwargs
+):
+    """
+    Parses the text of a book as character sequences,
+    also returns the number of lines in the book
+    """
+    final_text = ""
+    sent_len = 0
+
+    # book_text = book_text.replace("\n", " ").replace("\t", " ")
+    for char in book_text:
+        if char.isalpha():
+            final_text += char.lower()
+            sent_len += 1
+
+        elif char in [" ", "\n", "\t", ","]:
+            if final_text[-1] != " ":
+                final_text += " "
+            sent_len += 1
+
+        if sent_len > sentence_limit or char in ["?", "!", ".", ";"]:
+            if final_text[-1] != "\n":
+                final_text += "\n"
+            sent_len = 0
+
+    return final_text.strip()
 
 
 # Step 1 : Create corpus with only characters
@@ -170,6 +203,7 @@ def parse_all(
     books and parse each based on a hash.
     """
     parser_dict = {
+        "i": parse_as_is,
         "n": parse_as_phonemes_noisy,
         "p": parse_as_phonemes,
         "c": parse_as_char
