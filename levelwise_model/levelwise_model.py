@@ -223,7 +223,7 @@ class LevelwiseModel:
                     sp_model=sp_model,
                     w2v_model=w2v_model,
                     utterances=utterances,
-                    results_file=self.__curr_results_dir + "results.txt"
+                    results_file=self.__curr_results_dir + "/results.txt"
                 )
                 self.logger.info("Tested layer.")
 
