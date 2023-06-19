@@ -148,3 +148,6 @@ data/
 
 # Models
 models/
+
+# Log files
+logs/
