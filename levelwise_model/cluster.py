@@ -17,9 +17,11 @@ class Cluster:
         self.logger.setLevel("DEBUG")
         if log_dir is not None:
             cluster_log_fh = logging.FileHandler(
-                self.log_dir + "clusters_log.txt", mode="w"
+                self.log_dir + "clusters_log.txt", mode="w+"
             )
-            log_fh = logging.FileHandler(self.log_dir + "log.txt")
+            log_fh = logging.FileHandler(
+                self.log_dir + "log.txt", mode="w+"
+            )
             cluster_log_fh.setLevel("DEBUG")
             log_fh.setLevel("DEBUG")
             formatter = logging.Formatter(
@@ -93,7 +95,7 @@ class Cluster:
             map_dir = map_dir.strip("/")
             makedirs(map_dir, exist_ok=True)
             map_file = map_dir + "/clusters.txt"
-        print(map_file)
+
         with open(map_file, "w+", encoding="utf-8") as map_fp:
             for cluster in list(self.cluster_to_words.keys()):
                 map_fp.write(
