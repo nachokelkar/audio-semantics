@@ -140,7 +140,7 @@ class LevelwiseModel:
             self,
             input_file: str,
             utterance_file: str,
-            n_levels: int = 1,
+            n_levels: int = None,
             configs: list[Config] = None,
             test_bench: TestBench = None
     ) -> None:
@@ -158,6 +158,14 @@ class LevelwiseModel:
         # Load initial utterances file
         utterances = WordToUtteranceMapping()
         utterances.load_mapping(map_file=utterance_file)
+
+        if n_levels is None:
+            if configs is None:
+                raise ValueError(
+                    "At least one of `n_levels` or `configs` must be used."
+                )
+            else:
+                n_levels = len(configs)
 
         for level in range(1, n_levels + 1):
             self.logger.info(f"----- STARTING LEVEL {level} -----")
