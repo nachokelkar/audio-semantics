@@ -23,7 +23,7 @@ class WordToUtteranceMapping:
         Loads mapping from a file with word and utterance separated by
         a tab-space.
         """
-        with open(map_file, "r") as utterance_file:
+        with open(map_file, "r", encoding='utf-8') as utterance_file:
             for line in utterance_file.readlines():
                 if line.strip():
                     key, seq = line.strip().split("\t")
@@ -114,3 +114,25 @@ class WordToUtteranceMapping:
 
             vectors = np.array([w2v_model.wv[unit] for unit in units])
             return vectors.mean(axis=0).reshape(1, -1)
+
+    def get_utterance_stats(
+            self,
+            sp_model: spm.SentencePieceProcessor
+    ):
+        utterance_lengths = {}
+        all_lengths = []
+        for word in self.utterances:
+            utterance_lengths[word] = []
+            for utterance in self.utterances[word]:
+                pieces = list(
+                    filter(
+                        lambda x: x != "▁",
+                        sp_model.EncodeAsPieces(utterance)
+                    )
+                )
+
+                units = [piece.replace("▁", "") for piece in pieces]
+                utterance_lengths[word].append(len(units))
+                all_lengths.append(len(units))
+
+        return utterance_lengths, all_lengths
