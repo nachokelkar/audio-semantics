@@ -1,1 +1,3 @@
-{"rel": {"score": {"librispeech": {"min": 14.400074358487464, "avg": 11.235431470871413, "max": 2.2477350259719207}, "synthetic": {"min": -2.3363860975993704, "avg": -3.059226899396647, "max": -2.9658491852993007}}, "errors": 0, "trials": 1013}}
+version https://git-lfs.github.com/spec/v1
+oid sha256:ef6adf89ef07a2d0c9e054911437a47918cc2136165918f7d8f18d2317f06255
+size 245
