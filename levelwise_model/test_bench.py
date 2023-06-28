@@ -152,3 +152,98 @@ class LSTestBench(TestBench):
         )
 
         dump(results, open(results_file, "w+", encoding="utf-8"))
+
+    def ft_single_test(
+            self,
+            pairs: list,
+            ft_model,
+            utterances: WordToUtteranceMapping
+    ):
+        scores = {
+            test_set: {
+                method: [] for method in ["min", "max", "avg", "all"]
+            } for test_set in ["librispeech", "synthetic"]
+        }
+        gold_standard = {
+            "librispeech": [],
+            "synthetic": []
+        }
+        trials = 0
+        errors = 0
+
+        for pair in pairs:
+            try:
+                w1, w2, rel = pair
+
+                test_set = "librispeech" \
+                    if w1.startswith("ls_") \
+                    else "synthetic"
+                w1.replace("ls_", "").replace("sy_", "")
+                w2.replace("ls_", "").replace("sy_", "")
+
+                w1_vectors = utterances.get_vectors_from_word_ft(
+                    w1, ft_model=ft_model
+                )
+                w2_vectors = utterances.get_vectors_from_word_ft(
+                    w2, ft_model=ft_model
+                )
+
+                similarities = [
+                    cosine_similarity(i, j)
+                    for i in w1_vectors
+                    for j in w2_vectors
+                ]
+
+                scores[test_set]["min"].append(np.min(similarities))
+                scores[test_set]["avg"].append(np.mean(similarities))
+                scores[test_set]["max"].append(np.max(similarities))
+
+                gold_standard[test_set].append(rel)
+            except Exception as e:
+                print(e)
+                errors += 1
+            trials += 1
+
+        return {
+            'score': {
+                test_set: {
+                    var: pearsonr(
+                        scores[test_set][var],
+                        gold_standard[test_set]
+                    )[0] * 100
+                    for var in ['min', 'avg', 'max']
+                }
+                for test_set in ['librispeech', 'synthetic']
+            },
+            'errors': errors,
+            'trials': trials
+        }
+
+    def ft_score(
+            self,
+            ft_model,
+            utterances: WordToUtteranceMapping
+    ):
+        # tests = {'sim' : self.sim_pairs, 'rel' : self.rel_pairs}
+        tests = {'rel': self.rel_pairs}
+
+        return {
+            test: self.ft_single_test(
+                tests[test],
+                ft_model,
+                utterances
+            ) for test in tests
+        }
+
+    def ft_score_and_save(
+            self,
+            ft_model,
+            utterances: WordToUtteranceMapping,
+            results_file: str = "results/ft_st"
+    ):
+        results = self.ft_score(
+            ft_model,
+            utterances=utterances
+        )
+
+        dump(results, open(results_file, "w+", encoding="utf-8"))

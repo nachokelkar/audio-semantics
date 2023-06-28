@@ -4,6 +4,7 @@ import numpy as np
 import sentencepiece as spm
 from gensim.models.word2vec import Word2Vec
 from levelwise_model.cluster import Cluster
+from fasttext import FastText
 
 
 class WordToUtteranceMapping:
@@ -73,6 +74,18 @@ class WordToUtteranceMapping:
                 ))
 
         self.utterances = new_utterances
+
+    def get_vectors_from_word_ft(
+            self,
+            word,
+            ft_model: FastText
+    ):
+        return np.array(
+            [
+                ft_model.get_sentence_vector(utterance).reshape(1, -1)
+                for utterance in self.utterances[word]
+            ]
+        )
 
     def get_vectors_from_word(
             self,
