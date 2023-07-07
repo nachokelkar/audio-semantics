@@ -1,6 +1,7 @@
 import logging
 from os import makedirs
 
+import numpy as np
 import sentencepiece as spm
 from gensim.models.word2vec import Word2Vec
 
@@ -11,28 +12,33 @@ from levelwise_model.utterances import WordToUtteranceMapping
 
 
 class LevelwiseModel:
+    """
+    Main level-wise model class.
+    """
     def __init__(
             self,
             tag: str = None,
-            model_dir: str = "models/level_wise/",
-            data_dir: str = "data/level_wise/",
-            log_dir: str = "logs/level_wise/",
-            results_dir: str = "results/level_wise/",
+            model_dir: str = "models/",
+            data_dir: str = "data/",
+            log_dir: str = "logs/",
+            results_dir: str = "results/",
     ):
         self.n_levels = 0
 
+        self.model_dir = model_dir
+        self.data_dir = data_dir
+        self.log_dir = log_dir
+        self.results_dir = results_dir
+
         if tag:
-            self.model_dir = "models/" + tag
-            self.data_dir = "data/" + tag
-            self.log_dir = "logs/" + tag
-            self.results_dir = "results/" + tag
+            # If there is a tag, it is assumed to be in the
+            # default directory
+            self.model_dir = self.model_dir + tag
+            self.data_dir = self.data_dir + tag
+            self.log_dir = self.log_dir + tag
+            self.results_dir = self.results_dir + tag
 
-        else:
-            self.model_dir = model_dir
-            self.data_dir = data_dir
-            self.log_dir = log_dir
-            self.results_dir = results_dir
-
+        # Create a logger for debugging and progress tracking
         self.logger = logging.getLogger("LevelwiseModel")
         self.logger.setLevel("DEBUG")
         if log_dir is not None:
@@ -49,6 +55,7 @@ class LevelwiseModel:
             log_fh.setFormatter(formatter)
             self.logger.addHandler(log_fh)
 
+        # Stores paths to models and data
         self.sp_models = []
         self.w2v_models = []
         self.clusters = []
@@ -58,6 +65,9 @@ class LevelwiseModel:
             self,
             level: int
     ):
+        """
+        Function to create directories for each level.
+        """
         data_dir = f"{self.data_dir.strip('/')}/level{level}"
         makedirs(data_dir, exist_ok=True)
         self.__curr_data_dir = data_dir
@@ -73,6 +83,10 @@ class LevelwiseModel:
             sp_config: SentencePieceConfig,
             input_file: str
     ) -> spm.SentencePieceProcessor:
+        """
+        Trains a SentencePiece model from a given
+        configuration and input file.
+        """
         sp_model = spm.SentencePieceProcessor()
 
         # If model is not specified
@@ -110,6 +124,9 @@ class LevelwiseModel:
             w2v_config: Word2VecConfig,
             sentences: list
     ) -> Word2Vec:
+        """
+        Trains Word2Vec model with given configuration.
+        """
         # If W2V model is not specified
         if w2v_config.use_model is None:
             # Train Word2Vec
@@ -202,6 +219,7 @@ class LevelwiseModel:
             self.logger.info("Converted input to sentences")
             self.logger.debug(f"Sample sentence - {sentences[0][:10]}")
 
+            # Fetch Word2Vec model
             w2v_model = self.get_word2vec_from_config(
                 w2v_config=config.w2v_config,
                 sentences=sentences
@@ -224,13 +242,30 @@ class LevelwiseModel:
                     )
             self.logger.info(f"Created level {level} corpus.")
 
+            # Create a function that generates vectors for an input
+            # at this level
+            def word_vec_fn(word):
+                if word in w2v_model.wv.key_to_index.keys():
+                    return w2v_model.wv[word].reshape(1, -1)
+                else:
+                    pieces = list(
+                        filter(
+                            lambda x: x != "▁",
+                            sp_model.EncodeAsPieces(word)
+                        )
+                    )
+
+                    units = [piece.replace("▁", "") for piece in pieces]
+
+                    vectors = np.array([w2v_model.wv[unit] for unit in units])
+                    return vectors.mean(axis=0).reshape(1, -1)
+
             # Test level
             if test_bench:
                 self.logger.debug("Testing layer ...")
-                test_bench.score_and_save(
-                    sp_model=sp_model,
-                    w2v_model=w2v_model,
+                test_bench.run_suite(
                     utterances=utterances,
+                    word_vec_fn=word_vec_fn,
                     results_file=self.__curr_results_dir + "/results.txt"
                 )
                 self.logger.info("Tested layer.")
