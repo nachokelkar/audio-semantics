@@ -174,7 +174,7 @@ class LevelwiseModel:
         """
         # Load initial utterances file
         utterances = WordToUtteranceMapping()
-        utterances.load_mapping(map_file=utterance_file)
+        utterances.load_from_file(map_file=utterance_file)
 
         if n_levels is None:
             if configs is None:

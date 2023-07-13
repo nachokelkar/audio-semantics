@@ -1,25 +1,53 @@
 from os import makedirs
 
-import numpy as np
 import sentencepiece as spm
-from gensim.models.word2vec import Word2Vec
+
 from levelwise_model.cluster import Cluster
-from fasttext import FastText
 
 
 class WordToUtteranceMapping:
     def __init__(
             self,
-            map_file: str = None
+            utterances: dict | str = None,
     ):
         self.utterances = {}
-        if map_file is not None:
-            self.load_mapping(map_file)
+        self.ls_utterances = {}
+        self.sy_utterances = {}
+        self.mixed_utterances = {}
+        if isinstance(utterances, dict):
+            self.load_from_dict(utterances)
+        elif isinstance(utterances, str):
+            self.load_from_file(utterances)
+        self.split_utterances_by_dataset()
 
-    def load_mapping(
+    def load_from_dict(
+            self,
+            utterances: dict
+    ) -> None:
+        self.utterances = utterances
+
+    def split_utterances_by_dataset(self) -> None:
+        for word in self.utterances:
+            if word.startswith("ls_"):
+                self.ls_utterances[word] = self.utterances[word]
+            if word.startswith("sy_"):
+                self.sy_utterances[word] = self.utterances[word]
+        for word in self.utterances:
+            if word[3:] not in self.mixed_utterances:
+                self.mixed_utterances[word[3:]] = []
+                if "ls_" + word[3:] in self.ls_utterances:
+                    self.mixed_utterances[word[3:]] = \
+                        self.mixed_utterances[word[3:]] + \
+                        self.ls_utterances["ls_" + word[3:]]
+                if "sy_" + word[3:] in self.sy_utterances:
+                    self.mixed_utterances[word[3:]] = \
+                        self.mixed_utterances[word[3:]] + \
+                        self.sy_utterances["sy_" + word[3:]]
+
+    def load_from_file(
             self,
             map_file: str
-    ):
+    ) -> None:
         """
         Loads mapping from a file with word and utterance separated by
         a tab-space.
@@ -28,6 +56,11 @@ class WordToUtteranceMapping:
             for line in utterance_file.readlines():
                 if line.strip():
                     key, seq = line.strip().split("\t")
+
+                    if key not in self.utterances:
+                        self.utterances[key] = []
+
+                    self.utterances[key].append(seq)
 
                     if key not in self.utterances:
                         self.utterances[key] = []
@@ -74,59 +107,6 @@ class WordToUtteranceMapping:
                 ))
 
         self.utterances = new_utterances
-
-    def get_vectors_from_word_ft(
-            self,
-            word,
-            ft_model: FastText
-    ):
-        return np.array(
-            [
-                ft_model.get_sentence_vector(utterance).reshape(1, -1)
-                for utterance in self.utterances[word]
-            ]
-        )
-
-    def get_vectors_from_word(
-            self,
-            word,
-            sp_model: spm.SentencePieceProcessor,
-            w2v_model: Word2Vec
-    ):
-        """
-        Gets embeddings of all utterances of a word.
-        """
-        return np.array(
-            [self.get_vector_from_utterance(
-                utterance,
-                sp_model,
-                w2v_model
-            ) for utterance in self.utterances[word]]
-        )
-
-    def get_vector_from_utterance(
-            self,
-            utterance,
-            sp_model: spm.SentencePieceProcessor,
-            w2v_model: Word2Vec
-    ):
-        """
-        Gets the embeddings of the given utterance.
-        """
-        if utterance in w2v_model.wv.key_to_index.keys():
-            return w2v_model.wv[utterance].reshape(1, -1)
-        else:
-            pieces = list(
-                filter(
-                    lambda x: x != "▁",
-                    sp_model.EncodeAsPieces(utterance)
-                )
-            )
-
-            units = [piece.replace("▁", "") for piece in pieces]
-
-            vectors = np.array([w2v_model.wv[unit] for unit in units])
-            return vectors.mean(axis=0).reshape(1, -1)
 
     def get_utterance_stats(
             self,

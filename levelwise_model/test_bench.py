@@ -122,8 +122,10 @@ class LSTestBench(TestBench):
                 scores[test_set].append(np.mean(similarities))
                 gold_standard[test_set].append(rel)
 
-            except Exception:
+            except Exception as e:
+                print(e)
                 errors += 1
+                break
 
             trials += 1
 
@@ -140,10 +142,11 @@ class LSTestBench(TestBench):
             'trials': trials
         }
 
-    def abx_test(
+    def same_word_abx_test(
             self,
             utterances: WordToUtteranceMapping,
             word_vec_fn: callable,
+            runs_per_ds: int = 700,
             use_noise_for_x: bool = False
     ):
         """
@@ -163,6 +166,121 @@ class LSTestBench(TestBench):
                 uses the word with least similarity with
                 word A instead. (default = False)
         """
+        test_sets = {
+            'librispeech': {
+                'preds': 0,
+                'total': 0,
+                'dataset': utterances.ls_utterances
+            },
+            'synthetic': {
+                'preds': 0,
+                'total': 0,
+                'dataset': utterances.sy_utterances
+            },
+            'mixed': {
+                'preds': 0,
+                'total': 0,
+                'dataset': utterances.mixed_utterances
+            },
+        }
+
+        preds = 0
+        total = 0
+
+        def __get_random_utterance(word):
+            """
+            Custom function to return the other word given
+            a pair
+            """
+            ls_utterances = []
+            sy_utterances = []
+
+            if 'ls_' + word[3:] in utterances.utterances:
+                ls_utterances += utterances.utterances[
+                    'ls_' + word[3:]
+                ]
+
+            if 'sy_' + word[3:] in utterances.utterances:
+                sy_utterances += utterances.utterances[
+                    'sy_' + word[3:]
+                ]
+
+            utt = np.random.choice(ls_utterances + sy_utterances)
+            if utt in ls_utterances:
+                return utt, 'ls'
+            return utt, 'sy'
+
+        for test_set in test_sets:
+            ds = test_sets[test_set]['dataset']
+            for _ in range(runs_per_ds):
+                # Select two random words for A and X
+                word_a, word_x = np.random.choice(
+                    list(ds.keys()),
+                    size=2,
+                    replace=False
+                )
+                utt_a, utt_b = np.random.choice(
+                    ds[word_a],
+                    size=2,
+                    replace=False
+                )
+
+                utt_x = np.random.choice(
+                    ds[word_x]
+                )
+
+                v_a = word_vec_fn(utt_a)
+                v_b = word_vec_fn(utt_b)
+                v_x = word_vec_fn(utt_x)
+
+                sim_ab = cosine_similarity(v_a, v_b)
+                sim_ax = cosine_similarity(v_a, v_x)
+
+                if sim_ab > sim_ax:
+                    # If model predicts A and B to be closer
+                    # than A and x, it is a success
+                    preds += 1
+                    test_sets[test_set]['preds'] += 1
+                total += 1
+                test_sets[test_set]['total'] += 1
+
+        return {
+            "Same-word ABX Result": {
+                test_set: (
+                    test_sets[test_set]['preds'] /
+                    test_sets[test_set]['total']
+                )
+                for test_set in test_sets
+            }
+        }
+
+    def cross_word_abx_test(
+            self,
+            utterances: WordToUtteranceMapping,
+            word_vec_fn: callable,
+            use_noise_for_x: bool = False,
+    ):
+        """
+        Performs ABX testing with all the words in the utterance
+        vocaulary. For each word, a test is only done if there are
+        at least two other word similarities available for it.
+
+        Inputs
+        ------
+            utterances : WordToUtteranceMapping
+                To fetch the utterances of each word.
+            word_vec_fn : callable
+                A function that returns embeddings for a
+                string input.
+            use_noise_for_x : bool, OPTIONAL
+                Whether to randomly generate word X. `false`
+                uses the word with least similarity with
+                word A instead. (default = False)
+        """
+        ls_preds = 0
+        sy_preds = 0
+        ls_total = 0
+        sy_total = 0
         preds = 0
         total = 0
 
@@ -180,9 +298,9 @@ class LSTestBench(TestBench):
             similar_words = sorted(
                 # Get only pairs containing word A
                 filter(
-                    lambda x: x[0] == word_a or x[1] == word_a
+                    lambda x: x[0] == word_a or x[1] == word_a,
+                    self.rel_pairs
                 ),
-                self.rel_pairs,
                 key=lambda x: x[2],
                 reverse=True
             )
@@ -219,23 +337,38 @@ class LSTestBench(TestBench):
                         len(utt_a),
                         replace=True
                     )
+                    utt_x = "".join(utt_x)
 
                 # TODO: Perform this check before indexing
                 if len(set([word_a, word_b, word_x])) == 3:
-                    v_a = word_vec_fn(utt_a).reshape(1, -1)
-                    v_b = word_vec_fn(utt_b).reshape(1, -1)
-                    v_x = word_vec_fn(utt_x).reshape(1, -1)
+                    v_a = word_vec_fn(utt_a)
+                    v_b = word_vec_fn(utt_b)
+                    v_x = word_vec_fn(utt_x)
 
                     sim_ab = cosine_similarity(v_a, v_b)
                     sim_ax = cosine_similarity(v_a, v_x)
 
                     if sim_ab > sim_ax:
+                        if word_a.startswith("ls_"):
+                            ls_preds += 1
+                        elif word_a.startswith("sy_"):
+                            sy_preds += 1
                         # If model predicts A and B to be closer
                         # than A and x, it is a success
                         preds += 1
+                    if word_a.startswith("ls_"):
+                        ls_total += 1
+                    elif word_a.startswith("sy_"):
+                        sy_total += 1
                     total += 1
 
-        return {"ABX Result": preds/total}
+        return {
+            "ABX Result": {
+                'librispeech': ls_preds / ls_total,
+                'synthetic': sy_preds / sy_total,
+                'combined': preds / total
+            }
+        }
 
     def run_suite(
             self,
@@ -263,10 +396,15 @@ class LSTestBench(TestBench):
                 utterances=utterances,
                 word_vec_fn=word_vec_fn
             ),
-            "abx-test": self.abx_test(
+            "xw-abx-test": self.cross_word_abx_test(
                 utterances=utterances,
                 word_vec_fn=word_vec_fn,
-                use_noise_for_x=True
+                use_noise_for_x=False
+            ),
+            "sw-abx-test": self.same_word_abx_test(
+                utterances=utterances,
+                word_vec_fn=word_vec_fn,
+                use_noise_for_x=False
             )
         }
 
