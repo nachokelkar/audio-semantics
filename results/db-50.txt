@@ -1,0 +1,1 @@
+{"similarities": {"score": {"librispeech": 8.253180987037307, "synthetic": -0.004998110381584656}, "errors": 0, "trials": 1013}, "xw-abx-test": {"ABX Result": {"librispeech": 0.581140350877193, "synthetic": 0.49278846153846156, "combined": 0.5240683229813664}}, "sw-abx-test": {"Same-word ABX Result": {"librispeech": 0.66, "synthetic": 0.71, "mixed": 0.6457142857142857}}}
