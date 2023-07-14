@@ -187,29 +187,6 @@ class LSTestBench(TestBench):
         preds = 0
         total = 0
 
-        def __get_random_utterance(word):
-            """
-            Custom function to return the other word given
-            a pair
-            """
-            ls_utterances = []
-            sy_utterances = []
-
-            if 'ls_' + word[3:] in utterances.utterances:
-                ls_utterances += utterances.utterances[
-                    'ls_' + word[3:]
-                ]
-
-            if 'sy_' + word[3:] in utterances.utterances:
-                sy_utterances += utterances.utterances[
-                    'sy_' + word[3:]
-                ]
-
-            utt = np.random.choice(ls_utterances + sy_utterances)
-            if utt in ls_utterances:
-                return utt, 'ls'
-            return utt, 'sy'
-
         for test_set in test_sets:
             ds = test_sets[test_set]['dataset']
             for _ in range(runs_per_ds):
