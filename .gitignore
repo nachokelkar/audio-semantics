@@ -152,5 +152,5 @@ models/
 # Log files
 logs/
 
-# nanoGPT
-nanoGPT/
+# Kaldi
+kaldi_asr/
