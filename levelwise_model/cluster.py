@@ -2,13 +2,14 @@ import logging
 from os import makedirs
 
 from gensim.models.word2vec import Word2Vec
+from typing import Union
 
 
 class Cluster:
     def __init__(
             self,
             threshold: float = None,
-            model: str | Word2Vec = None,
+            model: Union[str, Word2Vec] = None,
             map_file: str = None,
             log_dir: str = None
     ):

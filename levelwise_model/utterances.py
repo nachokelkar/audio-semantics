@@ -3,12 +3,13 @@ from os import makedirs
 import sentencepiece as spm
 
 from levelwise_model.cluster import Cluster
+from typing import Union
 
 
 class WordToUtteranceMapping:
     def __init__(
             self,
-            utterances: dict | str = None,
+            utterances: Union[dict, str] = None,
     ):
         self.utterances = {}
         self.ls_utterances = {}
